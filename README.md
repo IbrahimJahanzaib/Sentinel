@@ -4,8 +4,6 @@
 
 Instead of waiting for failures to surface in production, Sentinel runs a continuous research cycle: it generates hypotheses about what could go wrong, designs experiments to test them, executes those experiments against your target system, classifies any failures it finds, proposes fixes, and validates that those fixes actually work. Every finding is stored in a persistent knowledge graph so each cycle builds on the last.
 
-> Inspired by [Agent Tinman](https://github.com/oliveskin/Agent-Tinman) (Apache 2.0). Sentinel is an independent implementation focused on autonomous failure discovery for LLM pipelines and tool-calling agents.
-
 ---
 
 ## What Sentinel Does
@@ -288,12 +286,6 @@ sentinel/
 | 7 — Reporting | ⏳ Pending | Markdown and JSON report generation |
 | 8 — CLI & TUI | ⏳ Pending | Full CLI commands, interactive terminal UI |
 | 9 — Tests & Docs | ⏳ Pending | Full test suite, examples |
-
----
-
-## Acknowledgements
-
-Sentinel is inspired by [Agent Tinman](https://github.com/oliveskin/Agent-Tinman), an open-source agent safety evaluation framework (Apache 2.0). Sentinel is an independent implementation with a narrower focus: autonomous failure discovery across the full research cycle.
 
 ---
 
