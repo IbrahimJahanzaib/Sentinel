@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "sentinel"
+version = "0.1.0"
+description = "Autonomous AI reliability research agent — discovers how LLM systems fail"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = [
+    # LLM providers
+    "anthropic>=0.40.0",
+    "openai>=1.40.0",
+    "httpx>=0.27.0",            # async HTTP for Groq, Ollama, OpenRouter, Together
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.0",
+    "alembic>=1.13.0",
+    "aiosqlite>=0.20.0",        # async SQLite driver
+    "asyncpg>=0.29.0",          # async PostgreSQL driver (optional)
+
+    # Data / config
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "pyyaml>=6.0.0",
+    "python-dotenv>=1.0.0",
+
+    # CLI & TUI
+    "click>=8.1.0",
+    "textual>=0.70.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-mock>=3.14.0",
+]
+
+[project.scripts]
+sentinel = "sentinel.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sentinel*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
