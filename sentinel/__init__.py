@@ -4,7 +4,7 @@ from __future__ import annotations
 
 __version__ = "0.1.0"
 
-from typing import Optional, TYPE_CHECKING
+from typing import Any, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .config.modes import Mode
@@ -58,6 +58,51 @@ class Sentinel:
     def __init__(self, settings: "SentinelSettings") -> None:
         self.settings = settings
         self.mode = settings.mode
+
+    async def research_cycle(
+        self,
+        target: "Any",
+        focus: Optional[str] = None,
+        max_hypotheses: Optional[int] = None,
+        max_experiments: Optional[int] = None,
+        system_description: Optional[str] = None,
+    ) -> "Any":
+        """Run a full research cycle against a target system.
+
+        Parameters
+        ----------
+        target:
+            A TargetSystem implementation — the system being tested.
+        focus:
+            Natural language or failure class to focus on.
+        max_hypotheses / max_experiments:
+            Override config defaults.
+        system_description:
+            Override the target's own description.
+
+        Returns
+        -------
+        CycleResult
+        """
+        from .core.control_plane import ControlPlane
+        from .core.cost_tracker import CostTracker
+        from .integrations.model_client import build_default_client
+
+        tracker = CostTracker(budget_usd=self.settings.experiments.cost_limit_usd)
+        client = build_default_client(self.settings, tracker)
+
+        plane = ControlPlane(
+            settings=self.settings,
+            client=client,
+            target=target,
+            tracker=tracker,
+        )
+        return await plane.research_cycle(
+            focus=focus,
+            max_hypotheses=max_hypotheses,
+            max_experiments=max_experiments,
+            system_description=system_description,
+        )
 
     async def close(self) -> None:
         """Clean up resources."""
