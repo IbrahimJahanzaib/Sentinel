@@ -21,6 +21,7 @@ from sentinel.taxonomy.failure_types import (
 
 if TYPE_CHECKING:
     from sentinel.integrations.model_client import ModelClient
+    from sentinel.memory.graph import MemoryGraph
 
 # ---------------------------------------------------------------------------
 # Prompts
@@ -106,10 +107,12 @@ class HypothesisEngine:
         client: "ModelClient",
         focus_areas: Optional[list[str]] = None,
         max_hypotheses: int = 10,
+        memory_graph: Optional["MemoryGraph"] = None,
     ) -> None:
         self._client = client
         self._focus_areas = [f.upper() for f in (focus_areas or ["REASONING", "TOOL_USE"])]
         self._max = max_hypotheses
+        self._memory_graph = memory_graph
 
     # ------------------------------------------------------------------
     # Public API
@@ -143,12 +146,17 @@ class HypothesisEngine:
         focus = [f.upper() for f in (focus_areas or self._focus_areas)]
         count = n or self._max
 
-        previous = await self._load_previous_findings()
+        # Use memory graph if available; fall back to raw DB query
+        if self._memory_graph and self._memory_graph.node_count > 0:
+            previous_text = self._memory_graph.summarize_for_hypothesis_engine()
+        else:
+            previous = await self._load_previous_findings()
+            previous_text = self._format_findings(previous)
 
         user_prompt = _USER.format(
             system_description=system_description.strip(),
             focus_areas="\n".join(f"  - {f}" for f in focus),
-            previous_findings=self._format_findings(previous),
+            previous_findings=previous_text,
             n=count,
             short_id="{short_id}",  # keep placeholder literal for LLM
         )

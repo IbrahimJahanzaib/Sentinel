@@ -61,6 +61,7 @@ async def init_db(url: str, echo: bool = False, pool_size: int = 10) -> AsyncEng
 
     # Create all tables that are registered with Base
     from .models import _register_models  # noqa: F401 — ensures models are imported
+    from sentinel.memory.models import MemoryNode, MemoryEdge  # noqa: F401 — register memory tables
     async with _engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 

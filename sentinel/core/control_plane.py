@@ -29,6 +29,8 @@ from sentinel.core.risk_policy import ActionType, RiskPolicy
 from sentinel.db.connection import get_session
 from sentinel.db.models import Cycle, Experiment, ExperimentRun, Failure, Hypothesis
 from sentinel.integrations.model_client import ModelClient
+from sentinel.memory.graph import MemoryGraph
+from sentinel.memory.repository import MemoryRepository
 from sentinel.taxonomy.failure_types import Severity
 
 if TYPE_CHECKING:
@@ -102,11 +104,16 @@ class ControlPlane:
             audit_mode=settings.mode.value,
         )
 
+        # Memory graph
+        self._memory_repo = MemoryRepository()
+        self._memory_graph = MemoryGraph(repository=self._memory_repo)
+
         # Agents
         self._hypothesis_engine = HypothesisEngine(
             client=client,
             focus_areas=["REASONING", "TOOL_USE"],
             max_hypotheses=settings.research.max_hypotheses_per_run,
+            memory_graph=self._memory_graph,
         )
         self._experiment_architect = ExperimentArchitect(
             client=client,
@@ -175,6 +182,14 @@ class ControlPlane:
         self._header(cycle_id, focus)
         self._tracker.reset()
 
+        # Load memory graph so hypothesis engine can use past findings
+        try:
+            await self._memory_graph.load()
+            if self._memory_graph.node_count > 0:
+                self._log(f"  Memory graph loaded: {self._memory_graph.node_count} nodes, {self._memory_graph.edge_count} edges\n")
+        except Exception:
+            pass  # first cycle — no graph yet
+
         try:
             # ── Step 1: Generate hypotheses ──────────────────────
             self._log(Rule("[bold blue]Step 1 — Generating Hypotheses"))
@@ -219,6 +234,14 @@ class ControlPlane:
                     total_tokens=cost["total_input_tokens"] + cost["total_output_tokens"],
                 )
             )
+
+        # ── Populate memory graph from this cycle ───────────
+        try:
+            n_nodes = await self._memory_repo.populate_from_cycle(cycle_id)
+            await self._memory_repo.link_related_failures()
+            self._log(f"  Memory graph updated: {n_nodes} nodes added")
+        except Exception as exc:
+            self._log(f"  [yellow]Memory graph update failed: {exc}[/yellow]")
 
         self._summary(result)
         return result
