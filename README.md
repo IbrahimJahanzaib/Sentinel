@@ -109,6 +109,28 @@ Mode transitions are strictly enforced: LAB → SHADOW → PRODUCTION only. Skip
 
 ---
 
+## Memory Graph
+
+Every research cycle feeds into a **persistent knowledge graph** so each subsequent cycle builds on what's already been discovered — generating novel hypotheses instead of repeating past work.
+
+```
+Cycle 1 ──▶ Nodes + Edges stored in DB
+                │
+Cycle 2 ──▶ Hypothesis Engine reads graph ──▶ generates only NEW hypotheses
+                │
+Cycle 3 ──▶ Cross-cycle linking ──▶ deeper analysis of recurring patterns
+```
+
+The graph stores five node types (`CYCLE`, `HYPOTHESIS`, `FAILURE`, `INTERVENTION`, `EXPERIMENT`) connected by directed edges (`TESTED_IN`, `CAUSED_BY`, `CONFIRMED_BY`, `PROPOSED_FOR`, `FIXED_BY`, `RELATED_TO`, `INFORMS`).
+
+**Key queries the memory answers:**
+- What hypotheses have we already tested? (avoid repetition)
+- What failures exist in each failure class? (go deeper)
+- Which interventions worked vs. failed? (propose better fixes)
+- What did we know at time T? (temporal knowledge)
+
+---
+
 ## Multi-Provider LLM Support
 
 Sentinel's research agents can run on any of these providers — pick what works for your cost and privacy requirements:
@@ -254,17 +276,38 @@ asyncio.run(main())
 
 ```python
 from sentinel.integrations import PipelineAdapter
-from sentinel.config.modes import Mode
 
-adapter = PipelineAdapter(mode=Mode.SHADOW)
+adapter = PipelineAdapter(name="my-app", shadow_mode=True)
 
-async def monitored_llm_call(messages):
-    ctx = adapter.create_context(messages=messages)
-    ctx = await adapter.pre_request(ctx)
-    response = await your_existing_llm_call(messages)
-    ctx.response = response
-    await adapter.post_request(ctx)
+async def monitored_llm_call(prompt, model="gpt-4"):
+    ctx = adapter.create_context(model=model, provider="openai", prompt=prompt)
+    ctx = await adapter.pre_request(ctx)       # no-op in shadow mode
+    response = await your_existing_llm_call(prompt)
+    await adapter.post_request(
+        ctx, output=response.text,
+        input_tokens=response.usage.input, output_tokens=response.usage.output,
+        latency_ms=response.latency_ms,
+    )
     return response
+
+# Feed captured traffic into a research cycle
+target = adapter.as_target_system()
+results = await sentinel.research_cycle(target=target, focus="production errors")
+```
+
+### Real-time gateway monitoring
+
+```python
+from sentinel.integrations.gateway_plugin import GatewayMonitor, ConsoleAlerter, FileAlerter
+
+monitor = GatewayMonitor(
+    "ws://your-gateway:8080/events",
+    high_latency_threshold_ms=5000,
+)
+monitor.add_alerter(ConsoleAlerter(min_severity="S2"))
+monitor.add_alerter(FileAlerter("alerts.md", min_severity="S3"))
+
+await monitor.start()  # blocking; or use start_background() for a Task
 ```
 
 ---
@@ -295,11 +338,18 @@ sentinel/
 │   └── audit.py                # Immutable audit trail for all actions
 ├── integrations/
 │   ├── model_client.py         # Multi-provider async LLM client (6 providers)
-│   ├── pipeline_adapter.py     # Hook into existing pipelines (Shadow mode)
-│   └── gateway_plugin/         # Real-time WebSocket gateway monitoring
+│   ├── pipeline_adapter.py     # Hook wrapper for existing LLM calls + TargetSystem bridge
+│   └── gateway_plugin/
+│       ├── models.py           # EventType, RequestContext, GatewayEvent, AlertFinding
+│       ├── monitor.py          # WebSocket consumer with auto-reconnect and heuristic analysis
+│       ├── alerter.py          # Console, File, and Webhook alerters with severity filtering
+│       └── adapters/
+│           ├── base.py         # GatewayAdapter protocol
+│           └── generic.py      # GenericAdapter for standardized event schema
 ├── memory/
-│   ├── graph.py                # Knowledge graph of findings across cycles
-│   └── repository.py           # DB-backed graph storage
+│   ├── models.py               # MemoryNode + MemoryEdge ORM tables, NodeType/EdgeType enums
+│   ├── graph.py                # In-memory knowledge graph: query, traverse, summarize for agents
+│   └── repository.py           # DB-backed CRUD, populate graph from cycles, cross-cycle linking
 ├── taxonomy/
 │   └── failure_types.py        # FailureClass, SecuritySubtype, Severity enums
 ├── reporting/
@@ -333,8 +383,8 @@ sentinel/
 | 2 — LLM Client | Done | Multi-provider async client (6 providers), cost tracker, 14 passing tests |
 | 3 — Research Agents | Done | All 6 agents: hypothesis, experiment architect, executor, failure discovery, intervention, simulation |
 | 4 — Control Plane | Done | Full cycle orchestration, risk policy (SAFE/REVIEW/BLOCK), approval gate, audit trail |
-| 5 — Memory Graph | Pending | Persistent cross-cycle knowledge graph |
-| 6 — Integrations | Pending | Pipeline adapter, WebSocket gateway monitor |
+| 5 — Memory Graph | Done | Persistent cross-cycle knowledge graph with graph queries and agent integration, 33 passing tests |
+| 6 — Integrations | Done | Pipeline adapter with TargetSystem bridge, WebSocket gateway monitor, 3 alerters, 36 passing tests |
 | 7 — Reporting | Pending | Markdown and JSON report generation |
 | 8 — CLI & TUI | Pending | Full CLI commands, interactive terminal UI |
 | 9 — Tests & Docs | Pending | Full test suite, examples |
