@@ -99,25 +99,125 @@ def research(focus: str, max_hypotheses: int, target: str) -> None:
 
 @cli.command()
 @click.option("--format", "fmt", default="markdown", type=click.Choice(["markdown", "json"]))
-@click.option("--output", default=None, help="Output file path (defaults to stdout).")
-def report(fmt: str, output: str) -> None:
-    """Generate a findings report (Phase 7)."""
-    console.print("[yellow]The report command will be available after Phase 7.[/yellow]")
+@click.option("--output", "output_path", default=None, help="Output file path (defaults to stdout).")
+def report(fmt: str, output_path: str | None) -> None:
+    """Generate a findings report."""
+    asyncio.run(_report(fmt, output_path))
+
+
+async def _report(fmt: str, output_path: str | None) -> None:
+    from .config.settings import load_settings
+    from .db.connection import init_db, close_db
+    from .reporting import (
+        get_cycles, get_failures, get_interventions,
+        generate_markdown_report, generate_json_report,
+    )
+    import json
+
+    settings = load_settings()
+    await init_db(settings.database.url, echo=False)
+    try:
+        cycles = await get_cycles()
+        fails = await get_failures()
+        interventions = await get_interventions()
+
+        if fmt == "json":
+            content = json.dumps(generate_json_report(cycles, fails, interventions), indent=2)
+        else:
+            content = generate_markdown_report(cycles, fails, interventions)
+
+        if output_path:
+            Path(output_path).write_text(content)
+            console.print(f"[green]Report written to[/green] {output_path}")
+        else:
+            console.print(content)
+    finally:
+        await close_db()
 
 
 @cli.command()
 @click.option("--severity", default=None, help="Filter by minimum severity, e.g. S2+.")
 @click.option("--class", "failure_class", default=None, help="Filter by failure class.")
-def failures(severity: str, failure_class: str) -> None:
-    """List discovered failures (Phase 7)."""
-    console.print("[yellow]The failures command will be available after Phase 7.[/yellow]")
+def failures(severity: str | None, failure_class: str | None) -> None:
+    """List discovered failures."""
+    asyncio.run(_failures(severity, failure_class))
+
+
+async def _failures(severity: str | None, failure_class: str | None) -> None:
+    from rich.table import Table
+    from .config.settings import load_settings
+    from .db.connection import init_db, close_db
+    from .reporting import get_failures
+
+    settings = load_settings()
+    await init_db(settings.database.url, echo=False)
+    try:
+        rows = await get_failures(min_severity=severity, failure_class=failure_class)
+        if not rows:
+            console.print("[dim]No failures found.[/dim]")
+            return
+
+        table = Table(title="Discovered Failures")
+        table.add_column("Severity", style="bold")
+        table.add_column("Class")
+        table.add_column("Subtype")
+        table.add_column("Rate")
+        table.add_column("Evidence", max_width=60)
+        table.add_column("Cycle")
+
+        for f in rows:
+            table.add_row(
+                f.severity,
+                f.failure_class,
+                f.failure_subtype or "-",
+                f"{f.failure_rate:.0%}",
+                (f.evidence[:57] + "...") if len(f.evidence) > 60 else f.evidence,
+                f.cycle_id or "-",
+            )
+        console.print(table)
+    finally:
+        await close_db()
 
 
 @cli.command()
 @click.option("--status", default=None, help="Filter by status: untested, confirmed, rejected.")
-def hypotheses(status: str) -> None:
-    """List hypotheses (Phase 7)."""
-    console.print("[yellow]The hypotheses command will be available after Phase 7.[/yellow]")
+def hypotheses(status: str | None) -> None:
+    """List hypotheses."""
+    asyncio.run(_hypotheses(status))
+
+
+async def _hypotheses(status: str | None) -> None:
+    from rich.table import Table
+    from .config.settings import load_settings
+    from .db.connection import init_db, close_db
+    from .reporting import get_hypotheses
+
+    settings = load_settings()
+    await init_db(settings.database.url, echo=False)
+    try:
+        rows = await get_hypotheses(status=status)
+        if not rows:
+            console.print("[dim]No hypotheses found.[/dim]")
+            return
+
+        table = Table(title="Hypotheses")
+        table.add_column("Status", style="bold")
+        table.add_column("Class")
+        table.add_column("Severity")
+        table.add_column("Description", max_width=60)
+        table.add_column("Cycle")
+
+        for h in rows:
+            table.add_row(
+                h.status,
+                h.failure_class,
+                h.expected_severity,
+                (h.description[:57] + "...") if len(h.description) > 60 else h.description,
+                h.cycle_id or "-",
+            )
+        console.print(table)
+    finally:
+        await close_db()
 
 
 @cli.command()
