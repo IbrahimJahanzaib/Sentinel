@@ -221,16 +221,41 @@ sentinel init
 sentinel research --focus "tool use failures in multi-step tasks"
 sentinel research --focus "reasoning failures"
 
-# Generate a report
+# Generate a report (markdown or JSON, file or stdout)
 sentinel report --format markdown --output findings.md
-sentinel report --format json
+sentinel report --format json --output report.json
+sentinel report                       # markdown to stdout
 
-# Browse findings
-sentinel failures --severity S3+
+# Browse discovered failures (Rich-formatted table)
+sentinel failures                     # all failures
+sentinel failures --severity S2+      # S2 and above only
+sentinel failures --class SECURITY    # filter by failure class
+
+# Browse hypotheses (Rich-formatted table)
+sentinel hypotheses                   # all hypotheses
 sentinel hypotheses --status confirmed
+sentinel hypotheses --status untested
 
 # Launch the interactive TUI
 sentinel tui
+```
+
+### Report Formats
+
+**Markdown** — human-readable report with four sections:
+- Executive Summary (cycle count, failure count, cost)
+- Severity Distribution table (S4 → S0)
+- Findings by Failure Class (grouped, with evidence)
+- Interventions & Recommendations (grouped by validation status)
+
+**JSON** — structured dict for programmatic use:
+```json
+{
+  "summary": { "cycles": 5, "failures": 12, "interventions": 8, "total_cost_usd": 1.23 },
+  "severity_distribution": { "S3": { "label": "Serious Risk", "action": "Mitigate", "count": 4 } },
+  "findings": [ ... ],
+  "interventions": [ ... ]
+}
 ```
 
 ---
@@ -270,6 +295,34 @@ async def main():
     await sentinel.close()
 
 asyncio.run(main())
+```
+
+### Generate reports programmatically
+
+```python
+from sentinel.db.connection import init_db, close_db
+from sentinel.reporting import (
+    get_cycles, get_failures, get_interventions,
+    generate_markdown_report, generate_json_report,
+)
+
+async def make_report():
+    await init_db("sqlite+aiosqlite:///sentinel.db")
+
+    cycles = await get_cycles()
+    failures = await get_failures(min_severity="S2+")
+    interventions = await get_interventions()
+
+    # Markdown for humans
+    md = generate_markdown_report(cycles, failures, interventions)
+    Path("findings.md").write_text(md)
+
+    # JSON for tooling
+    import json
+    data = generate_json_report(cycles, failures, interventions)
+    Path("report.json").write_text(json.dumps(data, indent=2))
+
+    await close_db()
 ```
 
 ### Monitor an existing pipeline (Shadow mode)
@@ -353,7 +406,8 @@ sentinel/
 ├── taxonomy/
 │   └── failure_types.py        # FailureClass, SecuritySubtype, Severity enums
 ├── reporting/
-│   ├── markdown.py             # Human-readable markdown reports
+│   ├── queries.py              # Async DB query functions (cycles, failures, hypotheses, interventions)
+│   ├── markdown_report.py      # Human-readable markdown reports with severity tables
 │   └── json_report.py          # Structured JSON for programmatic use
 ├── tui/                        # Terminal UI (Textual)
 │   └── app.py
@@ -385,7 +439,7 @@ sentinel/
 | 4 — Control Plane | Done | Full cycle orchestration, risk policy (SAFE/REVIEW/BLOCK), approval gate, audit trail |
 | 5 — Memory Graph | Done | Persistent cross-cycle knowledge graph with graph queries and agent integration, 33 passing tests |
 | 6 — Integrations | Done | Pipeline adapter with TargetSystem bridge, WebSocket gateway monitor, 3 alerters, 36 passing tests |
-| 7 — Reporting | Pending | Markdown and JSON report generation |
+| 7 — Reporting | Done | Markdown and JSON report generation, DB query helpers, CLI `report`/`failures`/`hypotheses` commands, 18 passing tests |
 | 8 — CLI & TUI | Pending | Full CLI commands, interactive terminal UI |
 | 9 — Tests & Docs | Pending | Full test suite, examples |
 
