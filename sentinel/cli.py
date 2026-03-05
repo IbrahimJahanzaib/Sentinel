@@ -287,5 +287,10 @@ async def _hypotheses(status: str | None) -> None:
 
 @cli.command()
 def tui() -> None:
-    """Launch the interactive terminal UI (Phase 8)."""
-    console.print("[yellow]The TUI will be available after Phase 8.[/yellow]")
+    """Launch the interactive terminal UI."""
+    from .config.settings import load_settings
+    from .tui import SentinelApp
+
+    settings = load_settings()
+    app = SentinelApp(db_url=settings.database.url, mode=settings.mode.value)
+    app.run()
