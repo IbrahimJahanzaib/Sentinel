@@ -6,6 +6,8 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 
 from sentinel.tui.screens.dashboard import DashboardScreen
+from sentinel.tui.screens.findings import FindingsScreen
+from sentinel.tui.screens.hypotheses import HypothesesScreen
 
 
 class SentinelApp(App):
@@ -66,15 +68,13 @@ class SentinelApp(App):
             self._current_screen_name = "dashboard"
 
     def action_show_findings(self) -> None:
-        # Placeholder — replaced in Part 8C
         if self._current_screen_name != "findings":
             self.pop_screen()
-            self.push_screen(DashboardScreen())  # placeholder
+            self.push_screen(FindingsScreen())
             self._current_screen_name = "findings"
 
     def action_show_hypotheses(self) -> None:
-        # Placeholder — replaced in Part 8C
         if self._current_screen_name != "hypotheses":
             self.pop_screen()
-            self.push_screen(DashboardScreen())  # placeholder
+            self.push_screen(HypothesesScreen())
             self._current_screen_name = "hypotheses"
