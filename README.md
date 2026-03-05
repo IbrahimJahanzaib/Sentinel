@@ -440,8 +440,8 @@ sentinel/
 | 5 — Memory Graph | Done | Persistent cross-cycle knowledge graph with graph queries and agent integration, 33 passing tests |
 | 6 — Integrations | Done | Pipeline adapter with TargetSystem bridge, WebSocket gateway monitor, 3 alerters, 36 passing tests |
 | 7 — Reporting | Done | Markdown and JSON report generation, DB query helpers, CLI `report`/`failures`/`hypotheses` commands, 18 passing tests |
-| 8 — CLI & TUI | Pending | Full CLI commands, interactive terminal UI |
-| 9 — Tests & Docs | Pending | Full test suite, examples |
+| 8 — CLI & TUI | Done | CLI `research` command with DemoTarget, Textual TUI with dashboard/findings/hypotheses screens, 27 passing tests |
+| 9 — Tests & Docs | Done | Shared conftest, config/taxonomy/audit/risk-policy/approval-gate/all-6-agent tests, 80 new tests (208 total) |
 
 ---
 
