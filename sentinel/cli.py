@@ -91,10 +91,75 @@ async def _init_db(root: Path) -> None:
 @cli.command()
 @click.option("--focus", default=None, help="Natural language focus area for this cycle.")
 @click.option("--max-hypotheses", default=None, type=int, help="Override max hypotheses per cycle.")
-@click.option("--target", default=None, help="Target system name or path.")
-def research(focus: str, max_hypotheses: int, target: str) -> None:
-    """Run a research cycle (Phase 4)."""
-    console.print("[yellow]The research command will be available after Phase 4.[/yellow]")
+@click.option("--target", default=None, help="Target system description (uses built-in demo target).")
+@click.option(
+    "--approval",
+    default="auto",
+    type=click.Choice(["auto", "interactive", "auto_reject"]),
+    help="Approval mode for this cycle.",
+)
+def research(focus: str | None, max_hypotheses: int | None, target: str | None, approval: str) -> None:
+    """Run a full research cycle against a target system."""
+    asyncio.run(_research(focus, max_hypotheses, target, approval))
+
+
+async def _research(
+    focus: str | None,
+    max_hypotheses: int | None,
+    target_desc: str | None,
+    approval: str,
+) -> None:
+    """Async helper that runs a full research cycle."""
+    from . import create_sentinel
+    from .agents.demo_target import DemoTarget
+    from .integrations.model_client import build_default_client
+    from .core.cost_tracker import CostTracker
+
+    description = target_desc or "A general-purpose LLM assistant"
+
+    try:
+        sentinel = await create_sentinel()
+
+        # Override approval mode for CLI usage
+        if approval == "auto":
+            sentinel.settings.approval.mode = "auto_approve"
+        else:
+            sentinel.settings.approval.mode = approval
+
+        # Build a client for the demo target
+        tracker = CostTracker(budget_usd=sentinel.settings.experiments.cost_limit_usd)
+        client = build_default_client(sentinel.settings, tracker)
+        demo = DemoTarget(description=description, client=client)
+
+        console.print(
+            f"[bold]Starting research cycle[/bold]\n"
+            f"  Target : [cyan]{description}[/cyan]\n"
+            f"  Focus  : [cyan]{focus or 'all'}[/cyan]\n"
+            f"  Approval: [cyan]{sentinel.settings.approval.mode}[/cyan]\n"
+        )
+
+        result = await sentinel.research_cycle(
+            target=demo,
+            focus=focus,
+            max_hypotheses=max_hypotheses,
+        )
+
+        # Print summary
+        console.print(Panel(
+            f"[bold green]Cycle {result.cycle_id} complete[/bold green]\n\n"
+            f"Hypotheses generated : {len(result.hypotheses)}\n"
+            f"Failures found       : {len(result.failures)}\n"
+            f"Confirmed failures   : {len(result.confirmed_failures)}\n"
+            f"Interventions        : {len(result.interventions)}\n"
+            f"Total cost           : ${result.cost_summary.get('total_cost_usd', 0):.4f}",
+            title="[bold]Research Cycle Results[/bold]",
+        ))
+
+        await sentinel.close()
+
+    except Exception as exc:
+        console.print(f"[red]Error:[/red] {exc}")
+        raise SystemExit(1)
 
 
 @cli.command()
