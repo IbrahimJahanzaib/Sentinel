@@ -224,6 +224,51 @@ class AuditEntry(Base):
     mode: Mapped[str] = mapped_column(String(20), default="lab")
 
 
+# ---------------------------------------------------------------------------
+# AttackScan — one attack probe scan
+# ---------------------------------------------------------------------------
+
+class AttackScan(Base):
+    __tablename__ = "attack_scans"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    target_description: Mapped[str] = mapped_column(Text, default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    total_probes: Mapped[int] = mapped_column(Integer, default=0)
+    vulnerable_probes: Mapped[int] = mapped_column(Integer, default=0)
+    vulnerability_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    results_json: Mapped[str] = mapped_column(Text, default="{}")
+
+    # Relationships
+    findings: Mapped[list["AttackFinding"]] = relationship(
+        "AttackFinding", back_populates="scan", cascade="all, delete-orphan"
+    )
+
+
+# ---------------------------------------------------------------------------
+# AttackFinding — one finding from an attack scan
+# ---------------------------------------------------------------------------
+
+class AttackFinding(Base):
+    __tablename__ = "attack_findings"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_new_id)
+    scan_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("attack_scans.id", ondelete="CASCADE"), nullable=False
+    )
+    probe_id: Mapped[str] = mapped_column(String(20), nullable=False)
+    probe_name: Mapped[str] = mapped_column(String(200), default="")
+    category: Mapped[str] = mapped_column(String(50), nullable=False)
+    severity: Mapped[str] = mapped_column(String(5), nullable=False)
+    vulnerable: Mapped[bool] = mapped_column(Boolean, default=False)
+    vulnerability_rate: Mapped[float] = mapped_column(Float, default=0.0)
+    summary: Mapped[str] = mapped_column(Text, default="")
+
+    # Relationships
+    scan: Mapped["AttackScan"] = relationship("AttackScan", back_populates="findings")
+
+
 def _register_models() -> None:
     """Imported by connection.py to ensure all models are registered with Base.metadata."""
     # All models are defined in this module, so importing this module is sufficient.
