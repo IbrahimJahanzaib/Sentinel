@@ -297,6 +297,38 @@ def tui() -> None:
 
 
 # ---------------------------------------------------------------------------
+# sentinel serve
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind address.")
+@click.option("--port", default=8000, show_default=True, type=int, help="Port number.")
+@click.option("--reload", "auto_reload", is_flag=True, help="Enable auto-reload for development.")
+def serve(host: str, port: int, auto_reload: bool) -> None:
+    """Start the Sentinel REST API server."""
+    import uvicorn
+
+    console.print(
+        Panel(
+            f"[bold green]Starting Sentinel API server[/bold green]\n\n"
+            f"  Address : [cyan]http://{host}:{port}[/cyan]\n"
+            f"  Docs    : [cyan]http://{host}:{port}/docs[/cyan]\n"
+            f"  Reload  : {'[green]on[/green]' if auto_reload else '[dim]off[/dim]'}\n\n"
+            "Set [bold]SENTINEL_API_KEY[/bold] env var to enable authentication.",
+            title="[bold]sentinel serve[/bold]",
+        )
+    )
+
+    uvicorn.run(
+        "sentinel.api.app:create_app",
+        factory=True,
+        host=host,
+        port=port,
+        reload=auto_reload,
+    )
+
+
+# ---------------------------------------------------------------------------
 # sentinel attack-scan
 # ---------------------------------------------------------------------------
 
