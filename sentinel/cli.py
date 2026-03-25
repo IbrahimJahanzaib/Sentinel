@@ -511,3 +511,145 @@ def attack_list(category: str | None) -> None:
     for cat in sorted(c for c in counts if c != "total"):
         console.print(f"  {cat}: {counts[cat]} probes")
     console.print(f"  [bold]Total: {counts['total']} probes[/bold]")
+
+
+# ---------------------------------------------------------------------------
+# sentinel benchmark
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--target", "target_name", default="demo", help="Target name (demo)")
+@click.option(
+    "--profile",
+    default="standard",
+    help="Benchmark profile: quick, standard, comprehensive, security_only, cost_efficient",
+)
+@click.option(
+    "--compare",
+    default=None,
+    help="Comma-separated model names for cross-model comparison",
+)
+@click.option("--output", default=None, help="Save report to file")
+@click.option(
+    "--format", "fmt", default="markdown", help="Report format: markdown or json"
+)
+@click.option("--save-baseline", default=None, help="Save results as baseline JSON")
+@click.option("--baseline", default=None, help="Compare against a saved baseline")
+@click.option(
+    "--max-regression",
+    default=0.1,
+    type=float,
+    help="Max allowed regression fraction (default 0.1 = 10%%)",
+)
+def benchmark(
+    target_name: str,
+    profile: str,
+    compare: str | None,
+    output: str | None,
+    fmt: str,
+    save_baseline: str | None,
+    baseline: str | None,
+    max_regression: float,
+) -> None:
+    """Run a benchmark against a target system."""
+    import json as json_mod
+
+    from sentinel.benchmark.profiles import get_profile as _get_profile
+    from sentinel.benchmark.regression import RegressionDetector
+    from sentinel.benchmark.report import BenchmarkReporter
+    from sentinel.benchmark.suite import BenchmarkSuite
+
+    async def _run() -> None:
+        from sentinel.agents.demo_target import DemoTarget
+        from sentinel.db.connection import init_db
+
+        await init_db()
+        target = DemoTarget()
+        suite = BenchmarkSuite()
+
+        try:
+            if compare:
+                model_names = [m.strip() for m in compare.split(",")]
+                models = [{"provider": "auto", "model": m} for m in model_names]
+                result = await suite.compare_models(
+                    target_factory=lambda model_name: DemoTarget(),
+                    models=models,
+                    profile=profile,
+                )
+                reporter = BenchmarkReporter()
+                if fmt == "json":
+                    report: str | dict = reporter.comparison_to_json(result)
+                else:
+                    report = reporter.comparison_to_markdown(result)
+            else:
+                result = await suite.run(target, profile=profile)
+                reporter = BenchmarkReporter()
+
+                if save_baseline:
+                    RegressionDetector().save_baseline(result, save_baseline)
+                    console.print(f"Baseline saved to {save_baseline}")
+
+                if baseline:
+                    detector = RegressionDetector()
+                    baseline_result = detector.load_baseline(baseline)
+                    regression = detector.detect_regression(
+                        result, baseline_result, max_regression
+                    )
+                    report = reporter.regression_to_markdown(regression)
+                    if not regression.passed:
+                        console.print(
+                            f"\n[red]REGRESSION DETECTED:[/red] "
+                            f"worst regression {regression.worst_regression:.1%} "
+                            f"exceeds threshold {max_regression:.0%}"
+                        )
+                        if output:
+                            Path(output).write_text(
+                                report if isinstance(report, str) else json_mod.dumps(report, indent=2)
+                            )
+                        raise SystemExit(1)
+                else:
+                    if fmt == "json":
+                        report = reporter.result_to_json(result)
+                    else:
+                        report = reporter.result_to_markdown(result)
+
+            if output:
+                Path(output).write_text(
+                    report if isinstance(report, str) else json_mod.dumps(report, indent=2)
+                )
+                console.print(f"Report saved to {output}")
+            else:
+                click.echo(
+                    report if isinstance(report, str) else json_mod.dumps(report, indent=2)
+                )
+        finally:
+            from sentinel.db.connection import close_db
+            await close_db()
+
+    asyncio.run(_run())
+
+
+# ---------------------------------------------------------------------------
+# sentinel dashboard
+# ---------------------------------------------------------------------------
+
+@cli.command()
+@click.option("--port", default=8080, type=int, help="Port to run dashboard on")
+@click.option("--host", default="0.0.0.0", help="Host to bind to")
+@click.option(
+    "--open", "open_browser", is_flag=True, help="Open browser automatically"
+)
+def dashboard(port: int, host: str, open_browser: bool) -> None:
+    """Launch the Sentinel web dashboard."""
+    if open_browser:
+        import threading
+        import webbrowser
+
+        threading.Timer(
+            1.5, lambda: webbrowser.open(f"http://localhost:{port}")
+        ).start()
+
+    click.echo(f"Starting Sentinel dashboard at http://{host}:{port}")
+    from sentinel.dashboard.server import run_dashboard
+
+    run_dashboard(port=port, host=host)

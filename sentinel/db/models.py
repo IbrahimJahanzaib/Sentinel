@@ -269,6 +269,38 @@ class AttackFinding(Base):
     scan: Mapped["AttackScan"] = relationship("AttackScan", back_populates="findings")
 
 
+# ---------------------------------------------------------------------------
+# BenchmarkRun — one benchmark execution
+# ---------------------------------------------------------------------------
+
+class BenchmarkRun(Base):
+    __tablename__ = "benchmark_runs"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    model_name: Mapped[str] = mapped_column(String(100), default="")
+    model_provider: Mapped[str] = mapped_column(String(50), default="")
+    target_description: Mapped[str] = mapped_column(Text, default="")
+    profile: Mapped[str] = mapped_column(String(50), default="")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    duration_seconds: Mapped[float] = mapped_column(Float, default=0.0)
+    metrics_json: Mapped[str] = mapped_column(Text, default="{}")
+
+
+# ---------------------------------------------------------------------------
+# ModelComparison — cross-model benchmark comparison
+# ---------------------------------------------------------------------------
+
+class ModelComparison(Base):
+    __tablename__ = "model_comparisons"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_new_id)
+    benchmark_ids: Mapped[str] = mapped_column(Text, default="[]")  # JSON array
+    rankings_json: Mapped[str] = mapped_column(Text, default="{}")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_utcnow)
+
+
 def _register_models() -> None:
     """Imported by connection.py to ensure all models are registered with Base.metadata."""
     # All models are defined in this module, so importing this module is sufficient.

@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinel Dashboard</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+    <div class="sidebar-logo">Sentinel</div>
+    <nav>
+        <a href="#" data-page="dashboard" class="active">Dashboard</a>
+        <a href="#" data-page="cycles">Research Cycles</a>
+        <a href="#" data-page="failures">Failures</a>
+        <a href="#" data-page="benchmarks">Benchmarks</a>
+        <a href="#" data-page="attacks">Attack Scans</a>
+        <a href="#" data-page="settings">Settings</a>
+    </nav>
+</div>
+
+<!-- Main Content -->
+<div class="main">
+
+    <!-- Dashboard Page -->
+    <div id="page-dashboard" class="page active">
+        <h1>Dashboard</h1>
+        <div class="stats-grid">
+            <div class="stat-card"><div class="stat-value" id="stat-cycles">-</div><div class="stat-label">Cycles</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-failures">-</div><div class="stat-label">Failures</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-benchmarks">-</div><div class="stat-label">Benchmarks</div></div>
+            <div class="stat-card"><div class="stat-value" id="stat-attacks">-</div><div class="stat-label">Attack Scans</div></div>
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card"><h3>Severity Distribution</h3><canvas id="chart-severity"></canvas></div>
+            <div class="chart-card"><h3>Failures by Class</h3><canvas id="chart-class"></canvas></div>
+        </div>
+        <h2>Recent Activity</h2>
+        <table class="data-table">
+            <thead><tr><th>Date</th><th>Target</th><th>Focus</th><th>Hypotheses</th><th>Failures</th><th>Mode</th></tr></thead>
+            <tbody id="recent-cycles"></tbody>
+        </table>
+    </div>
+
+    <!-- Cycles Page -->
+    <div id="page-cycles" class="page">
+        <h1>Research Cycles</h1>
+        <table class="data-table">
+            <thead><tr><th>ID</th><th>Date</th><th>Target</th><th>Focus</th><th>Hypotheses</th><th>Failures</th><th>Cost</th></tr></thead>
+            <tbody id="cycles-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Cycle Detail Page -->
+    <div id="page-cycle-detail" class="page">
+        <div id="cycle-detail-content"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Failures Page -->
+    <div id="page-failures" class="page">
+        <h1>Failures</h1>
+        <div class="filters">
+            <select id="filter-severity" onchange="applyFailureFilters()">
+                <option value="">All Severities</option>
+                <option value="S4">S4 (Critical)</option>
+                <option value="S3">S3 (Serious)</option>
+                <option value="S2">S2 (Business Risk)</option>
+                <option value="S1">S1 (UX)</option>
+                <option value="S0">S0 (Benign)</option>
+            </select>
+            <select id="filter-class" onchange="applyFailureFilters()">
+                <option value="">All Classes</option>
+                <option value="REASONING">Reasoning</option>
+                <option value="TOOL_USE">Tool Use</option>
+                <option value="INSTRUCTION_FOLLOWING">Instruction Following</option>
+                <option value="SAFETY">Safety</option>
+                <option value="CONSISTENCY">Consistency</option>
+                <option value="CONTEXT_HANDLING">Context Handling</option>
+            </select>
+        </div>
+        <table class="data-table">
+            <thead><tr><th>ID</th><th>Class</th><th>Severity</th><th>Rate</th><th>Evidence</th><th>Date</th></tr></thead>
+            <tbody id="failures-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Failure Detail Page -->
+    <div id="page-failure-detail" class="page">
+        <div id="failure-detail-content"><div class="loading">Loading...</div></div>
+    </div>
+
+    <!-- Benchmarks Page -->
+    <div id="page-benchmarks" class="page">
+        <h1>Benchmarks</h1>
+        <table class="data-table">
+            <thead><tr><th>ID</th><th>Date</th><th>Model</th><th>Profile</th><th>Duration</th></tr></thead>
+            <tbody id="benchmarks-table"></tbody>
+        </table>
+        <div id="benchmark-detail"></div>
+    </div>
+
+    <!-- Attacks Page -->
+    <div id="page-attacks" class="page">
+        <h1>Attack Scans</h1>
+        <p style="color: var(--text-dim); margin-bottom: 16px;">Available probes: <strong id="probes-count">-</strong></p>
+        <table class="data-table">
+            <thead><tr><th>ID</th><th>Date</th><th>Probes</th><th>Vulnerable</th><th>Rate</th></tr></thead>
+            <tbody id="attacks-scans-table"></tbody>
+        </table>
+    </div>
+
+    <!-- Settings Page -->
+    <div id="page-settings" class="page">
+        <h1>Settings</h1>
+        <div id="settings-content"><div class="loading">Loading...</div></div>
+    </div>
+
+</div>
+
+<script src="/static/lib/chart.min.js"></script>
+<script src="/static/js/api.js"></script>
+<script src="/static/js/charts.js"></script>
+<script src="/static/js/websocket.js"></script>
+<script src="/static/js/app.js"></script>
+
+</body>
+</html>
